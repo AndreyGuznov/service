@@ -1,0 +1,6 @@
+server:
+  addr: "1234"
+database:
+  addr: "127.0.0.1:6534"
+cache:
+  time: 1

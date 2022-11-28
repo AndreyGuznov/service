@@ -5,13 +5,11 @@ import (
 	"serv/pkg/logger"
 )
 
-// HTTPRestServer ...
 type HTTPRestServer struct {
 	address string
 	wrapped *http.Server
 }
 
-// NewHTTPRestServer creates HTTP service
 func NewHTTPRestServer(address string, handler http.Handler) *HTTPRestServer {
 	httpsrv := http.Server{
 		Addr:    address,
@@ -20,8 +18,6 @@ func NewHTTPRestServer(address string, handler http.Handler) *HTTPRestServer {
 
 	return &HTTPRestServer{wrapped: &httpsrv, address: address}
 }
-
-// Serve HTTP service
 
 func (server *HTTPRestServer) Serve() error {
 	logger.Info("Serving on " + server.address)

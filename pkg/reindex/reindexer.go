@@ -2,6 +2,7 @@ package reindex
 
 import (
 	"fmt"
+	"serv/config"
 	"serv/pkg/logger"
 	"sync"
 
@@ -37,7 +38,7 @@ func Conn() *RDB {
 }
 
 func doInit() (*RDB, error) {
-	addr := fmt.Sprintf("cproto://%s/%s", "127.0.0.1:6534", "DB")
+	addr := fmt.Sprintf("cproto://%s/DB", config.Instance.Database.Addr)
 
 	instance := reindexer.NewReindex(addr, reindexer.WithCreateDBIfMissing())
 

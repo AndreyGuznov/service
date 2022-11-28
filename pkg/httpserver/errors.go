@@ -9,7 +9,6 @@ var (
 	ErrInternalServerError = NewError(InternalServerError, "Unable to process the request due to server error")
 )
 
-// Error object struct
 type ServiceError struct {
 	Code    string `json:"code"`
 	Message string `json:"message,omitempty"`

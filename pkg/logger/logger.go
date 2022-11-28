@@ -20,11 +20,9 @@ const (
 )
 
 const (
-	// debug flag
 	debug bool = true
 )
 
-// Logger stores all known loggers
 type Logger struct {
 	loggers map[string]*log.Logger
 }
@@ -35,7 +33,6 @@ var (
 	initLog sync.Once
 )
 
-// GetLogger creates the log file if not present and initializes the various loggers for use
 func GetLogger() *Logger {
 	initLog.Do(func() {
 		loggers := make(map[string]*log.Logger)
@@ -46,7 +43,6 @@ func GetLogger() *Logger {
 		if debug {
 			loggers[debugLevel] = log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds)
 		} else {
-			//discard the messages
 			loggers[debugLevel] = log.New(ioutil.Discard, "", log.LstdFlags|log.Lmicroseconds)
 		}
 
@@ -57,8 +53,6 @@ func GetLogger() *Logger {
 }
 
 func (rlog *Logger) logInt(level, msg string, err error) {
-	// To get the file of the caller to log that info in the log
-	// skip 1 returns logger.go and hence increasing it to 2 assumming only 1 level of call to logger
 	_, file, line, ok := runtime.Caller(2)
 	if ok {
 		fileParts := strings.Split(file, "/")
@@ -77,22 +71,18 @@ func (rlog *Logger) logInt(level, msg string, err error) {
 	logger.Println(msg, errMsg)
 }
 
-// Err logs the message & error as an error
 func Err(msg string, err error) {
 	GetLogger().logInt(errorLevel, msg, err)
 }
 
-// Warn logs the message & error as a warning
 func Warn(msg string, err error) {
 	GetLogger().logInt(warnLevel, msg, err)
 }
 
-// Info logs the message as an info
 func Info(msg string) {
 	GetLogger().logInt(infoLevel, msg, nil)
 }
 
-// Debug logs the message only when the debug flag is turned on
 func Debug(msg string) {
 	GetLogger().logInt(debugLevel, msg, nil)
 }

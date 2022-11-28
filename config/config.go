@@ -1,92 +1,122 @@
 package config
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"serv/pkg/logger"
-	"strings"
+	"strconv"
 
 	"github.com/joho/godotenv"
+	"gopkg.in/yaml.v3"
 )
 
-var envPaths = []string{".env", "/.env", "/root/.env", "~/.env"}
+var (
+	Instance Config
+)
 
-func init() {
-	// Try to load files sequentially, until first found
-	for _, fname := range envPaths {
-		if err := godotenv.Load(fname); err == nil {
-			return
+type Config struct {
+	Server
+	Database
+	Cache
+}
+
+type Server struct {
+	Addr string `yaml:"addr"`
+}
+
+type Database struct {
+	Addr string `yaml:"addr"`
+}
+
+type Cache struct {
+	Time int64 `yaml:"time"`
+}
+
+type rootConfig struct {
+	Server   `yaml:"server"`
+	Database `yaml:"database"`
+	Cache    `yaml:"cache"`
+}
+
+func NewConfigYaml(path string) (*Config, error) {
+	rootConfig := &rootConfig{}
+
+	file, err := os.Open(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer file.Close()
+
+	decoder := yaml.NewDecoder(file)
+
+	err = decoder.Decode(rootConfig)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Config{
+		Server:   rootConfig.Server,
+		Database: rootConfig.Database,
+		Cache:    rootConfig.Cache,
+	}, nil
+
+}
+
+func NewConfigEnv() (*Config, error) {
+
+	for _, v := range []string{"srvAddr", "dbAddr", "cachetime"} {
+
+		if _, set := os.LookupEnv(v); !set {
+			return nil, errors.New("Err of environment settings")
 		}
 	}
 
-	logger.Debug(fmt.Sprintf(".env files not found (lookup paths: %s)", strings.Join(envPaths, ", ")))
+	return &Config{
+		Server: Server{
+			Addr: os.Getenv("srvAddr"),
+		},
+		Database: Database{
+			Addr: os.Getenv("dbAddr"),
+		},
+		Cache: Cache{
+			Time: getEnvAsInt(os.Getenv("time"), 0),
+		},
+	}, nil
+
 }
 
-// Get config value as a string
-// Value is taken in following order:
-// 1. Environmental variable of the same name
-// 2. .env file
-// 3. Default value
-func Get(name string, def ...string) string {
-	val, _ := os.LookupEnv(name)
+func NewConfigDotEnv(envConfigPath string) (*Config, error) {
 
-	if val != "" {
-		return val
+	if err := godotenv.Load(envConfigPath); err != nil {
+		return nil, err
 	}
 
-	if len(def) == 0 {
-		panic(fmt.Sprintf("Environment variable %s is not set", name))
+	return NewConfigEnv()
+}
+
+func getEnvAsInt(str string, def int64) int64 {
+	if val, err := strconv.Atoi(str); err == nil {
+		return int64(val)
 	}
-
-	return def[0]
+	return def
 }
 
-// GetOptional returns config value as string, if exists
-func GetOptional(name string) (val string, ok bool) {
-	val, _ = os.LookupEnv(name)
+func InitConfig() {
+	configYamlpath := "D:/Golang/service/confi.yml"
+	configDotEnvpath := "D:/Golang/service/.env"
 
-	if val != "" {
-		return val, true
-	}
-
-	return val, false
-}
-
-// GetInt returns config value as integer
-func GetInt(name string, def ...int) int {
-	// val := Get(name, "")
-
-	// if val == "" {
-	// 	if len(def) == 0 {
-	// panic(fmt.Sprintf("Environment variable %s is not set", name))
-	// 	}
-
-	// 	return def[0]
-	// }
-
-	// res, err := strconv.Atoi(val)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("Environment variable %s: %s is not int: %v", name, val, err))
-	// }
-	// return res
-	return 5
-}
-
-// GetBool returns config value as boolean
-func GetBool(name string, def ...bool) bool {
-	val := Get(name, "")
-
-	if val == "" {
-		if len(def) == 0 {
-			panic(fmt.Sprintf("Environment variable %s is not set", name))
+	inst, err := NewConfigYaml(configYamlpath)
+	if err != nil {
+		inst, err = NewConfigDotEnv(configDotEnvpath)
+		if err != nil {
+			inst, err = NewConfigEnv()
+			if err != nil {
+				logger.Err("Bad config data", err)
+			}
 		}
-
-		return def[0]
 	}
-
-	if val == "0" || val == "false" {
-		return false
-	}
-
-	return true
+	Instance = *inst
 }

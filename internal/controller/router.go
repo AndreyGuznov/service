@@ -2,10 +2,9 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"serv/internal/usecase/entity"
-	"serv/internal/usecase/repo"
+	"serv/internal/entity"
+	"serv/internal/repo"
 	"serv/pkg/httpserver"
 	"serv/pkg/logger"
 	"strconv"
@@ -25,40 +24,49 @@ func NewController() *Controller {
 func (lc *Controller) GetRoutes() []httpserver.Route {
 	routes := make([]httpserver.Route, 0)
 
-	routes = append(routes, httpserver.Route{Name: "Get all cities", Method: http.MethodGet, Pattern: "/getlist/{lim}",
-		HandlerFunc: lc.getlist})
+	routes = append(routes, httpserver.Route{Name: "Get all cities", Method: http.MethodGet, Pattern: "/city",
+		HandlerFunc: lc.getAll})
 
-	routes = append(routes, httpserver.Route{Name: "Get city", Method: http.MethodGet, Pattern: "/getcity/{id}",
-		HandlerFunc: lc.getCity})
+	routes = append(routes, httpserver.Route{Name: "Get one city", Method: http.MethodGet, Pattern: "/city/{id}",
+		HandlerFunc: lc.getOne})
 
-	routes = append(routes, httpserver.Route{Name: "Create new city", Method: http.MethodPost, Pattern: "/createCity",
-		HandlerFunc: lc.createCity})
+	routes = append(routes, httpserver.Route{Name: "Create new city", Method: http.MethodPost, Pattern: "/city",
+		HandlerFunc: lc.create})
 
-	routes = append(routes, httpserver.Route{Name: "Create new carbase", Method: http.MethodPost, Pattern: "/createCarbase",
-		HandlerFunc: lc.createCarbase})
+	routes = append(routes, httpserver.Route{Name: "Edit city", Method: http.MethodPut, Pattern: "/city",
+		HandlerFunc: lc.edit})
 
-	routes = append(routes, httpserver.Route{Name: "Edit collection", Method: http.MethodPatch, Pattern: "/edit",
-		HandlerFunc: lc.editСollection})
-
-	routes = append(routes, httpserver.Route{Name: "Delete collection", Method: http.MethodDelete, Pattern: "/delete/{id}",
-		HandlerFunc: lc.deleteСollection})
+	routes = append(routes, httpserver.Route{Name: "Delete city", Method: http.MethodDelete, Pattern: "/city",
+		HandlerFunc: lc.delete})
 	return routes
 }
 
-func (lc *Controller) getlist(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	lim, err := strconv.ParseInt(vars["lim"], 10, 0)
-	if err != nil {
-		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Invalid lim"))
+func (lc *Controller) getAll(w http.ResponseWriter, r *http.Request) {
+	l := r.URL.Query().Get("limit")
+	o := r.URL.Query().Get("offset")
+	if len(l) == 0 || len(o) == 0 {
+		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Invalid params for get"))
 	}
-	its, err := repo.GetList(lim)
+
+	lim, err := strconv.Atoi(l)
+	if err != nil {
+		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Invalid limit for get"))
+	}
+
+	offs, err := strconv.Atoi(o)
+	if err != nil {
+		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Invalid offset for get"))
+	}
+
+	cities, err := repo.GetList(lim, offs)
 	if err != nil {
 		httpserver.WriteResponse(w, http.StatusInternalServerError, err)
 	}
-	httpserver.WriteResponse(w, http.StatusOK, its)
+
+	httpserver.WriteResponse(w, http.StatusOK, cities)
 }
 
-func (lc *Controller) getCity(w http.ResponseWriter, r *http.Request) {
+func (lc *Controller) getOne(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
@@ -67,7 +75,7 @@ func (lc *Controller) getCity(w http.ResponseWriter, r *http.Request) {
 		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Invalid id"))
 	}
 
-	city, err := repo.GetCity(id)
+	city, err := repo.GetOne(id)
 	if err != nil {
 		httpserver.WriteResponse(w, http.StatusInternalServerError, err)
 	}
@@ -75,55 +83,63 @@ func (lc *Controller) getCity(w http.ResponseWriter, r *http.Request) {
 	httpserver.WriteResponse(w, http.StatusOK, city)
 }
 
-func (lc *Controller) createCity(w http.ResponseWriter, r *http.Request) {
-	var mod entity.City
-	err := json.NewDecoder(r.Body).Decode(&mod)
+func (lc *Controller) create(w http.ResponseWriter, r *http.Request) {
+	var city entity.City
+	err := json.NewDecoder(r.Body).Decode(&city)
 	if err != nil {
 		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Err of body in Post method, invalid model"))
 		return
 	}
 
-	err = repo.CreateCity(&mod)
+	err = repo.Create(&city)
 	if err != nil {
-		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Err of Create Reindexer"))
+		httpserver.WriteResponse(w, http.StatusInternalServerError, httpserver.NewError(httpserver.BadRequestError, "Err of Create Reindexer"))
 		return
 	}
 
-	httpserver.WriteResponse(w, http.StatusOK, fmt.Sprintf("New city was created"))
+	httpserver.WriteResponse(w, http.StatusOK, "New city was created")
 }
 
-func (lc *Controller) createCarbase(w http.ResponseWriter, r *http.Request) {
-	var mod entity.Carbase
-	err := json.NewDecoder(r.Body).Decode(&mod)
+func (lc *Controller) edit(w http.ResponseWriter, r *http.Request) {
+	var city entity.City
+	err := json.NewDecoder(r.Body).Decode(&city)
 	if err != nil {
 		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Err of body in Post method, invalid model"))
 		return
 	}
 
-	err = repo.CreateCarbase(&mod)
+	res, err := repo.Edit(city)
 	if err != nil {
-		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Err of Create Reindexer"))
+		httpserver.WriteResponse(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	httpserver.WriteResponse(w, http.StatusOK, "New carbase was created")
+	mess := "City updated"
+
+	if res == 0 {
+		mess = "No such city"
+	}
+
+	httpserver.WriteResponse(w, http.StatusOK, mess)
 }
 
-func (lc *Controller) editСollection(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func (lc *Controller) deleteСollection(w http.ResponseWriter, r *http.Request) {
+func (lc *Controller) delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 0)
 	if err != nil {
 		httpserver.WriteResponse(w, http.StatusBadRequest, httpserver.NewError(httpserver.BadRequestError, "Invalid id"))
 	}
 
-	err = repo.Delete(id)
+	num, err := repo.Delete(id)
 	if err != nil {
 		httpserver.WriteResponse(w, http.StatusInternalServerError, err)
 	}
 
-	w.WriteHeader(http.StatusOK)
+	mess := "Deleted"
+
+	if num == 0 {
+		mess = "No such city"
+	}
+
+	httpserver.WriteResponse(w, http.StatusOK, mess)
 }

@@ -1,9 +1,11 @@
 package main
 
 import (
-	"serv/internal/usecase/app"
+	"serv/internal/app"
 )
 
 func main() {
+
 	app.Run()
+
 }
